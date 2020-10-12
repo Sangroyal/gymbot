@@ -1,4 +1,3 @@
-"""Сервер Telegram бота, запускаемый непосредственно"""
 import logging
 import os
 import datetime
@@ -56,10 +55,9 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id,
                                "Вы еще не вносили данные о тренировках", reply_markup=kb.inline_kb_full)
         return
-
     last_exercises_rows = [
         f"{exercise.weight} кг. - {exercise.category_name} — нажми "
-        f"/del{exercise.id} для удаления"
+        f"/del{exercise.user_id} для удаления"
         for exercise in last_exercises]
     answer_message = "Последние сохранённые данные:\n\n➕ " + "\n\n➕ " \
         .join(last_exercises_rows)
@@ -130,18 +128,11 @@ async def del_exercise(message: types.Message):
     await message.answer(answer_message)
 
 
-# @dp.message_handler(commands=['today'])
-# async def today_statistics(message: types.Message):
-#     """Отправляет выполненный объем в кг."""
-#     answer_message = exercises.get_today_statistics()
-#     await message.answer(answer_message)
-#
-#
-# @dp.message_handler(commands=['month'])
-# async def month_statistics(message: types.Message):
-#     """Отправляет статистику поднятого веса текущего месяца"""
-#     answer_message = exercises.get_month_statistics()
-#     await message.answer(answer_message)
+@dp.message_handler(commands=['month'])
+async def month_statistics(message: types.Message):
+    """Отправляет статистику поднятого веса текущего месяца"""
+    answer_message = exercises.get_month_statistics()
+    await message.answer(answer_message)
 
 
 @dp.message_handler()
@@ -149,11 +140,13 @@ async def add_exercise(message: types.Message):
     """Добавляет новую запись о подходе"""
     try:
         exercise = exercises.add_exercise(message)
+        print(exercise)
     except exceptions.NotCorrectMessage as e:
         await message.answer(str(e))
         return
     answer_message = (
-        f"Добавлено в зачёт {exercise.weight} кг. на {exercise.reiteration} повторов - {exercise.category_name}.\n\n"
+        f"Добавлено в зачёт:\n"
+        f"{exercise.weight} кг - на {exercise.reiteration} повторений - {exercise.category_name}.\n\n"
         f"{exercises.get_today_statistics()}")
     await message.answer(answer_message)
 

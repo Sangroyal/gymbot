@@ -29,17 +29,19 @@ class Exercise(NamedTuple):
 
 def _parse_message(message) -> Message:
     """Парсит текст пришедшего сообщения о новом подходе"""
-    regexp_result = re.match(r"([\d ]+)(.*)", message.text)
-    if not regexp_result or not regexp_result.group(0) \
-            or not regexp_result.group(1) or not regexp_result.group(2):
+    parsed_message = message.text.split()
+    print(parsed_message)
+    if not (parsed_message and parsed_message[0].isdigit) or not parsed_message[1].isdigit\
+            or not parsed_message[2].isalpha:
         raise exceptions.NotCorrectMessage(
             "Не могу понять сообщение. Напишите сообщение в формате, "
             "например:\n100 4 жим")
 
-    user_id = message.from_user.id
-    weight = int(regexp_result.group(1).replace(" ", ""))
-    reiteration = int(regexp_result.group(1).replace(" ", ""))
-    category_text = regexp_result.group(2).strip().lower()
+    user_id = int(message.from_user.id)
+    weight = int(parsed_message[0])
+    reiteration = int(parsed_message[1])
+    category_text = parsed_message[2]
+    print(user_id, weight, reiteration, category_text)
     return Message(user_id=user_id, weight=weight, reiteration=reiteration, category_text=category_text)
 
 
@@ -47,8 +49,8 @@ def add_exercise(message) -> Exercise:
     """Добавляет новое сообщение.
     Принимает на вход текст сообщения, пришедшего в бот."""
     parsed_message = _parse_message(message)
-    user_id = Message.user_id
-    reiteration = Message.reiteration
+    user_id = parsed_message.user_id
+    reiteration = parsed_message.reiteration
     category = Categories().get_category(
         parsed_message.category_text)
     inserted_row_id = db.insert("exercises", {
@@ -115,7 +117,7 @@ def last() -> List[Exercise]:
     """Возвращает последние несколько расходов"""
     cursor = db.get_cursor()
     cursor.execute(
-        "select e.id, e.weight, c.name "
+        "select e.id, e.weight, e.reiteration, c.name "
         "from exercises e left join category c "
         "on c.codename=e.category_codename "
         "order by created desc limit 10")

@@ -1,6 +1,6 @@
 create table training_plan(
     codename varchar(255) primary key,
-    user_id integer foreign key,
+    user_id integer,
     daily_volume integer
 );
 
@@ -13,7 +13,7 @@ create table category(
 
 create table exercises(
     id integer primary key,
-    user_id integer foreign key,
+    user_id integer,
     weight integer,
     reiteration integer,
     created datetime,
