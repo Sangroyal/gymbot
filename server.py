@@ -4,6 +4,7 @@ import datetime
 
 from aiogram import Bot, Dispatcher, executor, types
 
+from config import API_TOKEN
 from categories import Categories
 import exceptions
 import exercises
@@ -11,11 +12,6 @@ import keyboards as kb
 from parsers import MessageParser
 
 logging.basicConfig(level=logging.INFO)
-
-# API_TOKEN = os.getenv("TELEGRAM_API_TOKEN")
-API_TOKEN = '1202070076:AAHCDBf0bIm4A9xmqRKf5726Ux9EKS0gYok'
-# ACCESS_ID = os.getenv("TELEGRAM_ACCESS_ID")
-# ACCESS_ID = '545679284'
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
