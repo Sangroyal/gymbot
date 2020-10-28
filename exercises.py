@@ -1,67 +1,42 @@
-""" Работа с повторениями — их добавление, удаление, статистики"""
+""" Работа с повторениями — их добавление, удалени и статистика"""
 import datetime
-import re
-from typing import List, NamedTuple, Optional
-from aiogram import Bot, Dispatcher, executor, types
+from typing import List, NamedTuple
 
 import pytz
 
 import db
+from parsers import MessageParser
 import exceptions
 from categories import Categories
+from model import Exercise
 
 
-class Message(NamedTuple):
-    """Структура распаршенного сообщения о новом повторении"""
-    user_id: int
-    weight: int
-    reiteration: int
-    category_text: str
+week_days = {0: 'понедельник',
+             1: 'вторник',
+             2: 'среда',
+             3: 'четверг',
+             4: 'пятница',
+             5: 'суббота',
+             6: 'воскресенье'}
+
+exercise_type = {0: 'грудь и бицепс',
+                 1: 'спину и трицепс',
+                 2: 'грудь и плечи',
+                 3: 'спину и ноги',
+                 4: 'грудь и ноги',
+                 5: 'расслабься, сегодня выходной ;)',
+                 6: 'мозг. Нет ну отдых то должен быть? ;)'}
 
 
-class Exercise(NamedTuple):
-    """Структура добавленного нового выполненного упражнения в БД"""
-    user_id: int
-    weight: int
-    reiteration: int
-    category_name: str
-
-
-def _parse_message(message) -> Message:
-    """Парсит текст пришедшего сообщения о новом подходе"""
-    parsed_message = message.text.split()
-    print(parsed_message)
-    if not (parsed_message and parsed_message[0].isdigit) or not parsed_message[1].isdigit\
-            or not parsed_message[2].isalpha:
-        raise exceptions.NotCorrectMessage(
-            "Не могу понять сообщение. Напишите сообщение в формате, "
-            "например:\n100 4 жим")
-
-    user_id = int(message.from_user.id)
-    weight = int(parsed_message[0])
-    reiteration = int(parsed_message[1])
-    category_text = parsed_message[2]
-    print(user_id, weight, reiteration, category_text)
-    return Message(user_id=user_id, weight=weight, reiteration=reiteration, category_text=category_text)
-
-
-def add_exercise(message) -> Exercise:
-    """Добавляет новое сообщение.
-    Принимает на вход текст сообщения, пришедшего в бот."""
-    parsed_message = _parse_message(message)
-    user_id = parsed_message.user_id
-    reiteration = parsed_message.reiteration
-    category = Categories().get_category(
-        parsed_message.category_text)
-    inserted_row_id = db.insert("exercises", {
-        "user_id": user_id,
-        "weight": parsed_message.weight,
-        "reiteration": parsed_message.reiteration,
-        "created": _get_now_formatted(),
-        "category_codename": category.codename,
-        "raw_text": message.text
-    })
-    return Exercise(user_id=user_id, weight=parsed_message.weight, reiteration=reiteration, category_name=category.name)
+def add_exercise(exercise: Exercise):
+    (user_id, name, weight, repetitions, category_codename) = exercise
+    db.insert("exercises",
+              {"user_id": user_id,
+               "weight": weight,
+               "repetitions": repetitions,
+               "created": _get_now_formatted(),
+               "category_codename": category_codename,
+               "name": name})
 
 
 def delete_exercise(row_id: int) -> None:
@@ -69,19 +44,40 @@ def delete_exercise(row_id: int) -> None:
     db.delete("exercises", row_id)
 
 
-def get_today_statistics() -> str:
+def get__week_value():
+    """Возвращает день текущий недели"""
+    week_day_value = datetime.datetime.today().weekday()
+    week_day = week_days[week_day_value]
+    return week_day
+
+
+def get_type_exercise_now():
+    """Возвращает упражнение в зависимости от дня недели"""
+    week_day_value = datetime.datetime.today().weekday()
+    exercise_name = exercise_type[week_day_value]
+    return exercise_name
+
+
+def get_today_statistics(user_id) -> str:
     """Возвращает строкой статистику тренировки за сегодня"""
     cursor = db.get_cursor()
-    cursor.execute("select sum(weight)"
-                   "from exercises where date(created)=date('now', 'localtime')")
+    cursor.execute('SELECT SUM(weight*repetitions) '
+                   'FROM exercises '
+                   'WHERE date(created)=date("now", "localtime") '
+                   'AND user_id={user_id}'
+                   .format(user_id=user_id))
     result = cursor.fetchone()
     if not result[0]:
         return "Ты сегодня еще и грамма не поднял. Бегом на тренировку"
     all_today_exercise = result[0]
-    cursor.execute("select sum(weight) "
-                   "from exercises where date(created)=date('now', 'localtime') "
-                   "and category_codename in (select codename "
-                   "from category where is_base_exercise=true)")
+    cursor.execute('SELECT SUM(weight) '
+                   'FROM exercises '
+                   'WHERE date(created)=date("now", "localtime") '
+                   'AND user_id={user_id} '
+                   'AND category_codename IN (SELECT codename '
+                   'FROM category '
+                   'WHERE is_base_exercise=true)'
+                   .format(user_id=user_id))
     result = cursor.fetchone()
     base_today_exercise = result[0] if result[0] else 0
     return (f"Уже поднял сегодня:\n"
@@ -90,21 +86,27 @@ def get_today_statistics() -> str:
             f"За текущий месяц: /month")
 
 
-def get_month_statistics() -> str:
+def get_month_statistics(user_id) -> str:
     """Возвращает строкой статистику тренировок за текущий месяц"""
     now = _get_now_datetime()
     first_day_of_month = f'{now.year:04d}-{now.month:02d}-01'
     cursor = db.get_cursor()
-    cursor.execute(f"select sum(weight) "
-                   f"from exercises where date(created) >= '{first_day_of_month}'")
+    cursor.execute('SELECT SUM(weight*repetitions) '
+                   'FROM exercises '
+                   'WHERE date(created) >= {first_day_of_month} '
+                   'AND user_id = {user_id}'
+                   .format(user_id=user_id, first_day_of_month=first_day_of_month))
     result = cursor.fetchone()
     if not result[0]:
         return "В этом месяце ещё небыло тренировок"
     all_today_exercise = result[0]
-    cursor.execute(f"select sum(weight) "
-                   f"from exercises where date(created) >= '{first_day_of_month}' "
-                   f"and category_codename in (select codename "
-                   f"from category where is_base_exercise=true)")
+    cursor.execute('SELECT SUM(weight*repetitions) '
+                   'FROM exercises '
+                   'WHERE date(created) >= {first_day_of_month} '
+                   'AND user_id = {user_id} '
+                   'AND category_codename in (select codename '
+                   'FROM category WHERE is_base_exercise=true)'
+                   .format(first_day_of_month=first_day_of_month, user_id=user_id))
     result = cursor.fetchone()
     base_today_exercise = result[0] if result[0] else 0
     return (f"В этом месяце ты поднял:\n"
@@ -113,16 +115,19 @@ def get_month_statistics() -> str:
             f"{now.day * _get_daily_volume()} кг.")
 
 
-def last() -> List[Exercise]:
+def last(user_id) -> List[Exercise]:
     """Возвращает последние несколько расходов"""
     cursor = db.get_cursor()
-    cursor.execute(
-        "select e.id, e.weight, e.reiteration, c.name "
-        "from exercises e left join category c "
-        "on c.codename=e.category_codename "
-        "order by created desc limit 10")
+    cursor.execute('SELECT e.id, e.weight*e.repetitions, e.repetitions, e.name, c.name '
+                   'FROM exercises e '
+                   'LEFT JOIN category c '
+                   'ON c.codename=e.category_codename '
+                   'WHERE e.user_id={user_id} '
+                   'ORDER BY created DESC limit 10'
+                   .format(user_id=user_id))
     rows = cursor.fetchall()
-    last_exercises = [Exercise(user_id=row[0], weight=row[1], reiteration=row[2], category_name=row[3]) for row in rows]
+    last_exercises = [Exercise(user_id=row[0], weight=row[1], repetitions=row[2], name=row[3], category_codename=row[4])
+                      for row in rows]
     return last_exercises
 
 
@@ -133,8 +138,8 @@ def _get_now_formatted() -> str:
 
 def _get_now_datetime() -> datetime.datetime:
     """Возвращает сегодняшний datetime с учётом времненной зоны Мск."""
-    tz = pytz.timezone("Europe/Moscow")
-    now = datetime.datetime.now(tz)
+    time_zone = pytz.timezone("Europe/Moscow")
+    now = datetime.datetime.now(time_zone)
     return now
 
 
