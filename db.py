@@ -32,9 +32,9 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     return result
 
 
-def delete(table: str, row_id: int) -> None:
+def delete(table: str, row_id: int):
     row_id = int(row_id)
-    cursor.execute(f"delete from {table} where id={row_id}")
+    cursor.execute(f"DELETE FROM {table} WHERE id={row_id}")
     conn.commit()
 
 
@@ -52,12 +52,11 @@ def _init_db():
 
 def check_db_exists():
     """Проверяет, инициализирована ли БД, если нет — инициализирует"""
-    cursor.execute("SELECT name FROM sqlite_master "
-                   "WHERE type='table' AND name='exercises'")
+    cursor.execute('SELECT name FROM sqlite_master '
+                   'WHERE type="table" AND name="exercises"')
     table_exists = cursor.fetchall()
-    if table_exists:
-        return
-    _init_db()
+    if not table_exists:
+        _init_db()
 
 
 check_db_exists()
