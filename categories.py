@@ -1,15 +1,8 @@
 """Работа с категориями упражнений"""
-from typing import Dict, List, NamedTuple
+from typing import Dict, List
+from model import Category
 
 import db
-
-
-class Category(NamedTuple):
-    """Структура категории"""
-    codename: str
-    name: str
-    is_base_exercise: bool
-    aliases: List[str]
 
 
 class Categories:
@@ -18,13 +11,12 @@ class Categories:
 
     def _load_categories(self) -> List[Category]:
         """Возвращает справочник категорий упражнений"""
-        categories = db.fetchall(
-            "category", "codename name is_base_exercise aliases".split()
-        )
+        categories = db.fetchall("category", "codename name is_base_exercise aliases".split())
         categories = self._fill_aliases(categories)
         return categories
 
-    def _fill_aliases(self, categories: List[Dict]) -> List[Category]:
+    @staticmethod
+    def _fill_aliases(categories: List[Dict]) -> List[Category]:
         """Заполняет по каждой категории aliases, то есть возможные
         названия этой категории, которые можем писать в тексте сообщения.
         Например, категория «жим штанги лежа» может быть написана как "жим",
@@ -43,11 +35,11 @@ class Categories:
             ))
         return categories_result
 
-    def get_all_categories(self) -> List[Dict]:
+    def get_all_categories(self) -> List[Category]:
         """Возвращает справочник категорий упражнений"""
         return self._categories
 
-    def get_category(self, category_name: str) -> Category:
+    def get_category_by_name(self, category_name: str) -> Category:
         """Возвращает категорию по одному из её алиасов."""
         found = None
         other_category = None
