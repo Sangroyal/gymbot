@@ -10,3 +10,4 @@ training_plan.db
 env/
 venv/
 db/
+config.py
