@@ -61,22 +61,22 @@ def get_type_exercise_now():
 def get_today_statistics(user_id) -> str:
     """Возвращает строкой статистику тренировки за сегодня"""
     cursor = db.get_cursor()
-    cursor.execute('SELECT SUM(weight*repetitions) '
-                   'FROM exercises '
-                   'WHERE date(created)=date("now", "localtime") '
-                   'AND user_id={user_id}'
+    cursor.execute("SELECT SUM(weight*repetitions) "
+                   "FROM exercises "
+                   "WHERE date(created)=current_date "
+                   "AND user_id={user_id}"
                    .format(user_id=user_id))
     result = cursor.fetchone()
     if not result[0]:
         return "Ты сегодня еще и грамма не поднял. Бегом на тренировку"
     all_today_exercise = result[0]
-    cursor.execute('SELECT SUM(weight) '
-                   'FROM exercises '
-                   'WHERE date(created)=date("now", "localtime") '
-                   'AND user_id={user_id} '
-                   'AND category_codename IN (SELECT codename '
-                   'FROM category '
-                   'WHERE is_base_exercise=true)'
+    cursor.execute("SELECT SUM(weight) "
+                   "FROM exercises "
+                   "WHERE DATE(created)=CURRENT_DATE "
+                   "AND user_id={user_id} "
+                   "AND category_codename IN (SELECT codename "
+                   "FROM category "
+                   "WHERE is_base_exercise=TRUE)"
                    .format(user_id=user_id))
     result = cursor.fetchone()
     base_today_exercise = result[0] if result[0] else 0
@@ -91,21 +91,21 @@ def get_month_statistics(user_id) -> str:
     now = _get_now_datetime()
     first_day_of_month = f'{now.year:04d}-{now.month:02d}-01'
     cursor = db.get_cursor()
-    cursor.execute('SELECT SUM(weight*repetitions) '
-                   'FROM exercises '
-                   'WHERE date(created) >= {first_day_of_month} '
-                   'AND user_id = {user_id}'
+    cursor.execute("SELECT SUM(weight*repetitions) "
+                   "FROM exercises "
+                   "WHERE date(created) >= date('{first_day_of_month}') "
+                   "AND user_id = {user_id}"
                    .format(user_id=user_id, first_day_of_month=first_day_of_month))
     result = cursor.fetchone()
     if not result[0]:
         return "В этом месяце ещё небыло тренировок"
     all_today_exercise = result[0]
-    cursor.execute('SELECT SUM(weight*repetitions) '
-                   'FROM exercises '
-                   'WHERE date(created) >= {first_day_of_month} '
-                   'AND user_id = {user_id} '
-                   'AND category_codename in (select codename '
-                   'FROM category WHERE is_base_exercise=true)'
+    cursor.execute("SELECT SUM(weight*repetitions) "
+                   "FROM exercises "
+                   "WHERE date(created) > date('{first_day_of_month}') "
+                   "AND user_id = {user_id} "
+                   "AND category_codename in (select codename "
+                   "FROM category WHERE is_base_exercise=true)"
                    .format(first_day_of_month=first_day_of_month, user_id=user_id))
     result = cursor.fetchone()
     base_today_exercise = result[0] if result[0] else 0
@@ -116,14 +116,14 @@ def get_month_statistics(user_id) -> str:
 
 
 def last(user_id) -> List[Exercise]:
-    """Возвращает последние несколько расходов"""
+    """Возвращает не более десяти последних выполненных подходов"""
     cursor = db.get_cursor()
-    cursor.execute('SELECT e.id, e.weight*e.repetitions, e.repetitions, e.name, c.name '
-                   'FROM exercises e '
-                   'LEFT JOIN category c '
-                   'ON c.codename=e.category_codename '
-                   'WHERE e.user_id={user_id} '
-                   'ORDER BY created DESC limit 10'
+    cursor.execute("SELECT e.id, e.weight*e.repetitions, e.repetitions, e.name, c.name "
+                   "FROM exercises e "
+                   "LEFT JOIN category c "
+                   "ON c.codename=e.category_codename "
+                   "WHERE e.user_id={user_id} "
+                   "ORDER BY created DESC limit 10"
                    .format(user_id=user_id))
     rows = cursor.fetchall()
     last_exercises = [Exercise(user_id=row[0], weight=row[1], repetitions=row[2], name=row[3], category_codename=row[4])

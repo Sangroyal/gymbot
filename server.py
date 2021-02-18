@@ -107,7 +107,7 @@ async def del_exercise(message: types.Message):
     """Удаляет одну запись об подходе по её идентификатору"""
     row_id = int(message.text[4:])
     exercises.delete_exercise(row_id)
-    answer_message = "Удалил"
+    answer_message = f"Запись №{row_id} - удалена"
     await message.answer(answer_message)
 
 
@@ -128,7 +128,7 @@ async def add_exercise(message: types.Message):
         exercises.add_exercise(exercise)
         answer_message = (
             f"Добавлено в зачёт:\n"
-            f"{exercise.weight} кг - на {exercise.repetitions} повторений - {exercise.category_codename}.\n\n"
+            f"{exercise.weight} кг - на {exercise.repetitions} повторений - {exercise.name}.\n\n"
             f"{exercises.get_today_statistics(user_id)}")
         await message.answer(answer_message)
     except exceptions.NotCorrectMessage as e:
